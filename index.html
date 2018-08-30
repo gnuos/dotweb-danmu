@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>WebSocket Test</title>
+</head>
+
+<body>
+    <h2>WebSocket Test</h2>
+    <div id="output"></div>
+
+    <script language="javascript" type="text/javascript">
+        var heartbeat_msg = "__PING__",
+            heartbeat_interval = null,
+            missed_heartbeats = 0;
+        var output;
+        var socket;
+
+        function init() {
+            output = document.getElementById("output");
+            testWebsocket();
+        }
+
+        function testWebsocket() {
+            socket = new WebSocket("ws://" + document.location.host + "/ws")
+
+            socket.onopen = function (evt) {
+                onOpen(evt)
+            };
+            socket.onclose = function (evt) {
+                onClose(evt)
+            };
+            socket.onmessage = function (evt) {
+                onMessage(evt)
+            };
+            socket.onerror = function (evt) {
+                onError(evt)
+            };
+        }
+
+        function onOpen(evt) {
+            writeToScreen("CONNECTED");
+            doSend(heartbeat_msg + Date.now());
+            if (heartbeat_interval === null) {
+                missed_heartbeats = 0;
+                heartbeat_interval = setInterval(function () {
+                    try {
+                        missed_heartbeats++;
+                        if (missed_heartbeats >= 10)
+                            throw new Error("Too many missed heartbeats.");
+                        doSend(heartbeat_msg);
+                    } catch (e) {
+                        clearInterval(heartbeat_interval);
+                        heartbeat_interval = null;
+                        console.warn("Closing connection. Reason: " + e.message);
+                        socket.close();
+                    }
+                }, 5000);
+            }
+        }
+
+        function onClose(evt) {
+            writeToScreen("DISCONNECTED");
+        }
+
+        function onMessage(evt) {
+            if (evt.data === "__PING__") {
+                doSend("__PONG__")
+            } else {
+                writeToScreen('<span style="color: blue;">RESPONSE:  ' + evt.data + '</span>');
+            }
+        }
+
+        function onError(evt) {
+            writeToScreen('<span style="color: red;">ERROR:</span>  ' + evt.data);
+        }
+
+        function doSend(message) {
+            writeToScreen("SENT:  " + message);
+            socket.send(message);
+        }
+
+        function writeToScreen(message) {
+            var pre = document.createElement("p");
+            pre.style.wordWrap = "break-word";
+            pre.innerHTML = message;
+            output.appendChild(pre);
+        }
+
+        window.addEventListener("load", init, false);
+    </script>
+</body>
+
+</html>
